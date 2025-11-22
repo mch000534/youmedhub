@@ -81,9 +81,19 @@
       <div class="right-panel">
         <div class="panel-header">
           <h2>视频脚本分析结果</h2>
-          <div v-if="isAnalyzing" class="analyzing-indicator">
-            <div class="pulsing-dot"></div>
-            <span>AI 分析中... {{ progressMessage }}</span>
+          <div class="header-actions">
+            <div v-if="isAnalyzing || isBatchProcessing" class="analyzing-indicator">
+              <div class="pulsing-dot"></div>
+              <span>{{ isBatchProcessing ? '批量处理中...' : 'AI 分析中...' }} {{ progressMessage }}</span>
+            </div>
+            <button
+              v-if="hasResults && !isAnalyzing && !isBatchProcessing"
+              @click="handleBatchProcess"
+              class="btn-batch"
+              title="自动截取所有片段和截图"
+            >
+              ✨ 一键批量截取
+            </button>
           </div>
         </div>
 
@@ -100,7 +110,9 @@
                 <th width="200">口播</th>
                 <th width="150">音效/音乐</th>
                 <th width="80">时长</th>
+                <th width="120">视频片段</th>
                 <th width="100">关键帧</th>
+                <th width="120">关键帧截图</th>
               </tr>
             </thead>
             <tbody>
@@ -113,11 +125,29 @@
                 <td class="text-left">{{ item.voiceover !== '无' ? item.voiceover : '' }}</td>
                 <td class="text-left">{{ item.audio !== '无' ? item.audio : '' }}</td>
                 <td class="text-center font-mono">{{ item.duration }}</td>
+                <td class="text-center media-cell" style="width: 160px; height: 100px; padding: 4px;">
+                  <VideoSegmentPlayer
+                    v-if="videoUrl"
+                    :video-url="videoUrl"
+                    :start-time="calculateCumulativeTime(item.sequenceNumber).start"
+                    :end-time="calculateCumulativeTime(item.sequenceNumber).end"
+                  />
+                </td>
                 <td class="text-center font-mono">{{ item.keyframeTimes }}</td>
+                <td class="text-center media-cell">
+                  <KeyframeView
+                    :sequence-number="item.sequenceNumber"
+                    :image-url="keyframeCache.get(item.sequenceNumber)"
+                    :time-info="item.keyframeTimes"
+                    :is-capturing="capturingKeyframe === item.sequenceNumber"
+                    @capture="handleCaptureKeyframe(item)"
+                    @preview="showImagePreview(item)"
+                  />
+                </td>
               </tr>
               <!-- 骨架屏行（当正在分析且无最新数据时显示，或简单地显示加载状态） -->
               <tr v-if="isAnalyzing" class="loading-row">
-                <td colspan="9">
+                <td colspan="11">
                   <div class="loading-indicator">
                     <div class="spinner-small"></div>
                     <span>正在分析下一帧...</span>
@@ -167,6 +197,9 @@
 import { ref, onMounted, reactive, computed, nextTick, watch } from 'vue';
 import { analyzeVideo } from '../api/videoAnalysis';
 import type { VideoAnalysisResponse, VideoScriptItem } from '../types/video';
+import { parseTimeToSeconds, captureFrameAtTime } from '../utils/videoCapture';
+import VideoSegmentPlayer from './VideoPlayer/VideoSegmentPlayer.vue';
+import KeyframeView from './ScreenshotView/KeyframeView.vue';
 
 const API_KEY_STORAGE_KEY = 'dashscope_api_key';
 
@@ -233,6 +266,13 @@ const isAnalyzing = ref(false);
 const progressMessage = ref('');
 const error = ref('');
 const analysisResult = ref<VideoAnalysisResponse | null>(null);
+
+// 截图和批量处理状态
+const capturingKeyframe = ref<number | null>(null); // 正在截图的项目序号
+const isBatchProcessing = ref(false);
+
+// 缓存截图
+const keyframeCache = ref<Map<number, string>>(new Map()); // key: sequenceNumber, value: imageDataUrl
 
 // 触发文件选择
 const triggerFileInput = () => {
@@ -336,6 +376,161 @@ const scrollToBottom = () => {
     }
   });
 };
+
+// 截取关键帧截图（使用 Canvas API）
+const handleCaptureKeyframe = async (item: VideoScriptItem) => {
+  if (!videoRef.value) {
+    alert('视频未加载，无法截图');
+    return;
+  }
+
+  capturingKeyframe.value = item.sequenceNumber;
+
+  try {
+    // 使用 parseTimeToSeconds 解析时间字符串 (如 "00:00:05")
+    const timeInSeconds = parseTimeToSeconds(item.keyframeTimes);
+    console.log(`📸 [截图] 第 ${item.sequenceNumber} 项`);
+    console.log(`   - keyframeTimes 原始值: "${item.keyframeTimes}"`);
+    console.log(`   - 解析后的秒数: ${timeInSeconds}s`);
+    console.log(`   - 视频元素状态: duration=${videoRef.value.duration}s, readyState=${videoRef.value.readyState}`);
+
+    const imageDataUrl = await captureFrameAtTime(videoRef.value, timeInSeconds);
+
+    // 保存到缓存
+    keyframeCache.value.set(item.sequenceNumber, imageDataUrl);
+
+    console.log(`✅ [截图] 成功截取关键帧`);
+  } catch (err) {
+    console.error(`❌ [截图] 失败:`, err);
+    alert(`截图失败: ${err instanceof Error ? err.message : '未知错误'}`);
+  } finally {
+    capturingKeyframe.value = null;
+  }
+};
+
+
+// 显示图片预览（点击放大）
+const showImagePreview = (item: VideoScriptItem) => {
+  const imageDataUrl = keyframeCache.value.get(item.sequenceNumber);
+  if (imageDataUrl) {
+    // 在新窗口中打开图片
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(`
+        <html>
+          <head>
+            <title>关键帧预览 - 第 ${item.sequenceNumber} 项</title>
+            <style>
+              body {
+                margin: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                background: #000;
+              }
+              img {
+                max-width: 100%;
+                max-height: 100vh;
+                object-fit: contain;
+              }
+            </style>
+          </head>
+          <body>
+            <img src="${imageDataUrl}" alt="关键帧 ${item.sequenceNumber}" />
+          </body>
+        </html>
+      `);
+    }
+  }
+};
+
+// 计算累计时间（从第一行开始累加）
+const calculateCumulativeTime = (sequenceNumber: number): { start: number; end: number } => {
+  const items = displayedItems.value;
+  let cumulativeSeconds = 0;
+
+  // 找到当前项在数组中的索引
+  const currentIndex = items.findIndex(item => item.sequenceNumber === sequenceNumber);
+
+  if (currentIndex === -1) {
+    return { start: 0, end: 0 };
+  }
+
+  // 累加当前项之前的所有时长（基于数组索引，而不是 sequenceNumber）
+  for (let i = 0; i < currentIndex; i++) {
+    const item = items[i];
+    if (item) {
+      cumulativeSeconds += parseTimeToSeconds(item.duration);
+    }
+  }
+
+  const currentItem = items[currentIndex];
+  if (!currentItem) {
+    return { start: 0, end: 0 };
+  }
+
+  const start = cumulativeSeconds;
+  const end = cumulativeSeconds + parseTimeToSeconds(currentItem.duration);
+
+  return { start, end };
+};
+
+// 批量处理（仅处理截图，视频片段已改为实时播放无需生成）
+const handleBatchProcess = async () => {
+  if (!hasResults.value || isBatchProcessing.value || !videoFile.value || !videoRef.value) return;
+
+  const items = displayedItems.value;
+  if (items.length === 0) return;
+
+  isBatchProcessing.value = true;
+  progressMessage.value = '正在准备批量处理...';
+
+  try {
+    // 批量截图（使用 Canvas API，轻量级）
+    const screenshotItems = items.filter(item => !keyframeCache.value.has(item.sequenceNumber));
+
+    if (screenshotItems.length > 0) {
+      console.log(`📦 [批量截图] 开始处理 ${screenshotItems.length} 个截图任务`);
+
+      for (let i = 0; i < screenshotItems.length; i++) {
+        const item = screenshotItems[i];
+        if (!item) continue;
+
+        progressMessage.value = `批量截图: ${i + 1}/${screenshotItems.length}`;
+
+        try {
+          // 修正：使用 parseTimeToSeconds 解析时间字符串
+          const timeInSeconds = parseTimeToSeconds(item.keyframeTimes);
+          const imageDataUrl = await captureFrameAtTime(videoRef.value, timeInSeconds);
+          keyframeCache.value.set(item.sequenceNumber, imageDataUrl);
+          console.log(`✅ [批量截图] 第 ${item.sequenceNumber} 项完成 (${timeInSeconds}s)`);
+        } catch (err) {
+          console.error(`❌ [批量截图] 第 ${item.sequenceNumber} 项失败:`, err);
+          // 继续处理下一个
+        }
+
+        // 短暂延迟，避免阻塞 UI
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+    }
+
+    progressMessage.value = '批量处理完成！';
+    console.log('🎉 [批量处理] 全部任务完成');
+  } catch (err) {
+    console.error('❌ [批量处理] 中断:', err);
+    alert(`批量处理过程中出现错误:\n${err instanceof Error ? err.message : '未知错误'}\n\n提示：如果是内存不足，请尝试分批处理或减少视频文件大小`);
+    progressMessage.value = '批量处理出错';
+  } finally {
+    isBatchProcessing.value = false;
+    // 3秒后清除进度消息
+    setTimeout(() => {
+      if (!isAnalyzing.value && !isBatchProcessing.value) {
+        progressMessage.value = '';
+      }
+    }, 3000);
+  }
+};
 </script>
 
 <style scoped>
@@ -428,6 +623,37 @@ const scrollToBottom = () => {
   justify-content: space-between;
   align-items: center;
   background: #fdfdfd;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.btn-batch {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+.btn-batch:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(99, 102, 241, 0.3);
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+}
+
+.btn-batch:active {
+  transform: translateY(0);
 }
 
 h2 {
@@ -750,6 +976,30 @@ h2 {
 /* 画面内容列宽一点，允许换行 */
 .visual-content {
   min-width: 200px;
+}
+
+/* 媒体单元格 */
+.media-cell {
+  padding: 0.5rem !important;
+}
+
+
+/* 下载按钮 */
+.btn-download {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #10b981;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-download:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
 }
 
 /* 加载行 */
