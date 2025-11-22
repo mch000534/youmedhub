@@ -79,52 +79,65 @@
 
       <!-- 右侧：分析结果表格 -->
       <div class="right-panel">
-        <h2>视频脚本分析结果</h2>
-
-        <div v-if="isAnalyzing" class="loading">
-          <div class="spinner"></div>
-          <p>{{ progressMessage }}</p>
+        <div class="panel-header">
+          <h2>视频脚本分析结果</h2>
+          <div v-if="isAnalyzing" class="analyzing-indicator">
+            <div class="pulsing-dot"></div>
+            <span>AI 分析中... {{ progressMessage }}</span>
+          </div>
         </div>
 
-        <div v-else-if="analysisResult && analysisResult.rep.length > 0" class="table-container">
-          <table class="result-table">
+        <!-- 脚本表格容器 -->
+        <div class="script-table-container" ref="tableContainerRef">
+          <table class="script-table" v-if="hasResults">
             <thead>
               <tr>
-                <th>序号</th>
-                <th>景别</th>
-                <th>运镜方式</th>
+                <th width="60">序号</th>
+                <th width="80">景别</th>
+                <th width="100">运镜方式</th>
                 <th>画面内容</th>
-                <th>画面文案</th>
-                <th>口播</th>
-                <th>音效/音乐</th>
-                <th>时长</th>
-                <th>关键画面帧数</th>
+                <th width="150">画面文案</th>
+                <th width="200">口播</th>
+                <th width="150">音效/音乐</th>
+                <th width="80">时长</th>
+                <th width="100">关键帧</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in analysisResult.rep" :key="item.sequenceNumber">
-                <td>{{ item.sequenceNumber }}</td>
-                <td>{{ item.shotType }}</td>
-                <td>{{ item.cameraMovement }}</td>
-                <td>{{ item.visualContent }}</td>
-                <td>{{ item.onScreenText }}</td>
-                <td>{{ item.voiceover }}</td>
-                <td>{{ item.audio }}</td>
-                <td>{{ item.duration }}</td>
-                <td>{{ item.keyframeTimes }}</td>
+              <tr v-for="item in displayedItems" :key="item.sequenceNumber" class="script-row">
+                <td class="text-center font-bold">{{ item.sequenceNumber }}</td>
+                <td class="text-center">{{ item.shotType }}</td>
+                <td class="text-center">{{ item.cameraMovement }}</td>
+                <td class="text-left visual-content">{{ item.visualContent }}</td>
+                <td class="text-left">{{ item.onScreenText !== '无' ? item.onScreenText : '' }}</td>
+                <td class="text-left">{{ item.voiceover !== '无' ? item.voiceover : '' }}</td>
+                <td class="text-left">{{ item.audio !== '无' ? item.audio : '' }}</td>
+                <td class="text-center font-mono">{{ item.duration }}</td>
+                <td class="text-center font-mono">{{ item.keyframeTimes }}</td>
+              </tr>
+              <!-- 骨架屏行（当正在分析且无最新数据时显示，或简单地显示加载状态） -->
+              <tr v-if="isAnalyzing" class="loading-row">
+                <td colspan="9">
+                  <div class="loading-indicator">
+                    <div class="spinner-small"></div>
+                    <span>正在分析下一帧...</span>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
 
-          <!-- 导出按钮 -->
-          <div class="export-actions">
-            <button @click="exportToJSON" class="btn-export">导出 JSON</button>
-            <button @click="exportToCSV" class="btn-export">导出 CSV</button>
+          <!-- 空状态 -->
+          <div v-else-if="!isAnalyzing" class="empty-state">
+            <div class="empty-icon">🎬</div>
+            <p>上传视频并点击"开始分析"后，这里将显示分析结果</p>
           </div>
-        </div>
-
-        <div v-else class="empty-state">
-          <p>上传视频并点击"开始分析"后，这里将显示分析结果</p>
+          
+          <!-- 仅加载中无数据 -->
+          <div v-else class="loading-state">
+             <div class="spinner"></div>
+             <p>正在初始化分析引擎...</p>
+          </div>
         </div>
       </div>
     </div>
@@ -151,9 +164,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue';
+import { ref, onMounted, reactive, computed, nextTick, watch } from 'vue';
 import { analyzeVideo } from '../api/videoAnalysis';
-import type { VideoAnalysisResponse } from '../types/video';
+import type { VideoAnalysisResponse, VideoScriptItem } from '../types/video';
 
 const API_KEY_STORAGE_KEY = 'dashscope_api_key';
 
@@ -161,6 +174,7 @@ const API_KEY_STORAGE_KEY = 'dashscope_api_key';
 const apiKey = ref('');
 const tempApiKey = ref('');
 const showApiKeyModal = ref(false);
+const tableContainerRef = ref<HTMLElement | null>(null);
 
 // 从 localStorage 加载 API Key
 onMounted(() => {
@@ -256,8 +270,16 @@ const clearVideo = () => {
 const handleAnalyze = async () => {
   if (!videoFile.value || !apiKey.value) return;
 
+  console.clear(); // 清空之前的日志
+  console.log('═══════════════════════════════════════════════');
+  console.log('🎬 [视频分析] 开始分析视频');
+  console.log(`📹 [视频分析] 视频文件: ${videoFile.value.name}`);
+  console.log(`📊 [视频分析] 文件大小: ${(videoFile.value.size / 1024 / 1024).toFixed(2)} MB`);
+  console.log('═══════════════════════════════════════════════');
+
   isAnalyzing.value = true;
   error.value = '';
+  analysisResult.value = null;
   progressMessage.value = '准备分析...';
 
   try {
@@ -269,9 +291,21 @@ const handleAnalyze = async () => {
       }
     );
 
+    // 最终结果
     analysisResult.value = result;
     progressMessage.value = '分析完成';
+    scrollToBottom();
+
+    console.log('═══════════════════════════════════════════════');
+    console.log('🎉 [视频分析] 分析完成！');
+    console.log(`📋 [视频分析] 最终结果包含 ${result.rep.length} 个脚本项目`);
+    console.log('═══════════════════════════════════════════════');
   } catch (err) {
+    console.log('═══════════════════════════════════════════════');
+    console.log('❌ [视频分析] 分析失败');
+    console.log(`🔴 [视频分析] 错误信息: ${err instanceof Error ? err.message : '未知错误'}`);
+    console.log('═══════════════════════════════════════════════');
+
     error.value = err instanceof Error ? err.message : '分析失败，请重试';
     analysisResult.value = null;
   } finally {
@@ -279,64 +313,39 @@ const handleAnalyze = async () => {
   }
 };
 
-// 导出为 JSON
-const exportToJSON = () => {
-  if (!analysisResult.value) return;
+// 计算属性
+const hasResults = computed(() => {
+  return analysisResult.value && analysisResult.value.rep && analysisResult.value.rep.length > 0;
+});
 
-  const dataStr = JSON.stringify(analysisResult.value, null, 2);
-  const blob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `video-analysis-${Date.now()}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-};
+const displayedItems = computed(() => {
+  return analysisResult.value?.rep || [];
+});
 
-// 导出为 CSV
-const exportToCSV = () => {
-  if (!analysisResult.value) return;
+// 判断条目是否是刚添加的（用于高亮动画，简单起见，这里返回 false，依靠 transition-group）
+const isItemNew = (item: VideoScriptItem) => false;
 
-  const headers = [
-    '序号',
-    '景别',
-    '运镜方式',
-    '画面内容',
-    '画面文案',
-    '口播',
-    '音效/音乐',
-    '时长',
-    '关键画面帧数',
-  ];
-
-  const rows = analysisResult.value.rep.map((item) => [
-    item.sequenceNumber,
-    item.shotType,
-    item.cameraMovement,
-    item.visualContent,
-    item.onScreenText,
-    item.voiceover,
-    item.audio,
-    item.duration,
-    item.keyframeTimes,
-  ]);
-
-  const csvContent = [
-    headers.join(','),
-    ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-  ].join('\n');
-
-  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `video-analysis-${Date.now()}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+// 自动滚动到底部
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (tableContainerRef.value) {
+      tableContainerRef.value.scrollTo({
+        top: tableContainerRef.value.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  });
 };
 </script>
 
 <style scoped>
+/* 基础变量 */
+:root {
+  --primary-color: #2563eb;
+  --bg-secondary: #f8fafc;
+  --border-color: #e2e8f0;
+}
+
 .video-analyzer {
   height: 100%;
   width: 100%;
@@ -402,23 +411,55 @@ const exportToCSV = () => {
 }
 
 .right-panel {
-  background: #f9f9f9;
+  background: #ffffff;
   border-radius: 8px;
-  padding: 1rem;
   border: 1px solid #e5e5e5;
   display: flex;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  padding: 0; /* 移除内边距，让表格贴边 */
+}
+
+.panel-header {
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fdfdfd;
 }
 
 h2 {
-  margin-top: 0;
-  margin-bottom: 0.75rem;
-  color: #333;
+  margin: 0;
+  color: #1e293b;
   font-size: 1rem;
   font-weight: 600;
-  flex-shrink: 0;
+}
+
+.analyzing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+}
+
+.pulsing-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #2563eb;
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.8); opacity: 0.5; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.8); opacity: 0.5; }
 }
 
 /* 弹窗 */
@@ -641,13 +682,13 @@ h2 {
 }
 
 .spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #2563eb;
+  border: 3px solid #f1f5f9;
+  border-top: 3px solid #3b82f6;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
+  margin-bottom: 1rem;
 }
 
 @keyframes spin {
@@ -655,80 +696,134 @@ h2 {
   100% { transform: rotate(360deg); }
 }
 
-.loading p {
-  color: #666;
-  font-size: 0.9rem;
-  margin: 0;
-}
-
-/* 表格 */
-.table-container {
+/* 表格容器 */
+.script-table-container {
   flex: 1;
-  overflow: auto;
-  min-height: 0;
-  background: #ffffff;
-  border-radius: 6px;
-  border: 1px solid #e5e5e5;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
 }
 
-.result-table {
+.script-table {
   width: 100%;
   border-collapse: collapse;
+  background: #ffffff;
   font-size: 0.85rem;
 }
 
-.result-table th,
-.result-table td {
-  padding: 0.5rem 0.75rem;
-  text-align: left;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.result-table th {
-  background: #f5f5f5;
-  font-weight: 600;
-  color: #333;
+.script-table thead {
   position: sticky;
   top: 0;
+  z-index: 10;
+  background: #f1f5f9;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.script-table th {
+  padding: 0.75rem 0.5rem;
+  font-weight: 600;
+  color: #475569;
+  text-align: center;
+  border-bottom: 1px solid #e2e8f0;
   white-space: nowrap;
-  z-index: 1;
 }
 
-.result-table tr:hover {
-  background: #f9f9f9;
+.script-table td {
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  vertical-align: top;
+  line-height: 1.5;
 }
 
-.result-table td {
-  color: #555;
-  max-width: 180px;
-  word-wrap: break-word;
+.script-row:hover td {
+  background-color: #f8fafc;
 }
 
-/* 导出操作 */
-.export-actions {
-  margin-top: 1rem;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  flex-shrink: 0;
+/* 对齐方式 */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.font-bold { font-weight: 600; color: #2563eb; }
+.font-mono { font-family: monospace; color: #64748b; }
+
+/* 画面内容列宽一点，允许换行 */
+.visual-content {
+  min-width: 200px;
+}
+
+/* 加载行 */
+.loading-row td {
+  padding: 1rem;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.spinner-small {
+  border: 2px solid #e2e8f0;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 1s linear infinite;
 }
 
 /* 空状态 */
 .empty-state {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #999;
+  color: #94a3b8;
+  gap: 1rem;
 }
 
-/* 加载状态 */
-.loading {
+.empty-icon {
+  font-size: 3rem;
+  opacity: 0.5;
+}
+
+.loading-state {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  color: #64748b;
+}
+
+
+/* 流式输出内容（调试用，默认隐藏） */
+.stream-content {
+  margin-top: 1.5rem;
+  width: 100%;
+  max-width: 800px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 1rem;
+  max-height: 400px;
+  overflow: auto;
+}
+
+.stream-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  color: #333;
+  line-height: 1.5;
 }
 
 /* 响应式 */
