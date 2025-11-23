@@ -194,7 +194,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed, nextTick, watch } from 'vue';
+import { ref, onMounted, reactive, computed, nextTick } from 'vue';
 import { analyzeVideo } from '../api/videoAnalysis';
 import type { VideoAnalysisResponse, VideoScriptItem } from '../types/video';
 import { parseTimeToSeconds, captureFrameAtTime } from '../utils/videoCapture';
@@ -361,9 +361,6 @@ const hasResults = computed(() => {
 const displayedItems = computed(() => {
   return analysisResult.value?.rep || [];
 });
-
-// 判断条目是否是刚添加的（用于高亮动画，简单起见，这里返回 false，依靠 transition-group）
-const isItemNew = (item: VideoScriptItem) => false;
 
 // 自动滚动到底部
 const scrollToBottom = () => {

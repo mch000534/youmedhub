@@ -11,14 +11,14 @@ export function parseTimeToSeconds(timeStr: string): number {
 
   if (parts.length === 2) {
     // MM:SS 格式
-    const minutes = parseInt(parts[0]) || 0;
-    const seconds = parseInt(parts[1]) || 0;
+    const minutes = parseInt(parts[0] || '0') || 0;
+    const seconds = parseInt(parts[1] || '0') || 0;
     return minutes * 60 + seconds;
   } else if (parts.length === 3) {
     // HH:MM:SS 或 MM:SS:FF 格式
-    const first = parseInt(parts[0]) || 0;
-    const second = parseInt(parts[1]) || 0;
-    const third = parseInt(parts[2]) || 0;
+    const first = parseInt(parts[0] || '0') || 0;
+    const second = parseInt(parts[1] || '0') || 0;
+    const third = parseInt(parts[2] || '0') || 0;
 
     // 判断是否为帧数格式（第一个数字较小，通常 < 60）
     if (first < 60 && third < 60) {
