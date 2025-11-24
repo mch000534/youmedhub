@@ -34,15 +34,27 @@
               <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.9rem;">
                 <i class="bi bi-cloud-arrow-up me-2 text-primary"></i>视频源
               </h6>
-              <select
-                v-model="selectedModel"
-                class="form-select form-select-sm"
-                style="width: auto; font-size: 0.75rem;"
-                :disabled="isAnalyzing"
-              >
-                <option value="qwen3-vl-flash">qwen3-vl-flash</option>
-                <option value="qwen3-vl-plus">qwen3-vl-plus</option>
-              </select>
+              <div class="d-flex gap-2">
+                <select
+                  v-model="selectedModel"
+                  class="form-select form-select-sm"
+                  style="width: auto; font-size: 0.75rem;"
+                  :disabled="isAnalyzing"
+                >
+                  <option value="qwen3-vl-flash">qwen3-vl-flash</option>
+                  <option value="qwen3-vl-plus">qwen3-vl-plus</option>
+                </select>
+                <select
+                  v-model="selectedPrompt"
+                  class="form-select form-select-sm"
+                  style="width: auto; font-size: 0.75rem;"
+                  :disabled="isAnalyzing"
+                  title="选择分析提示词版本"
+                >
+                  <option value="standard">标准版</option>
+                  <option value="pro">专业版</option>
+                </select>
+              </div>
             </div>
 
             <!-- 上传区域 -->
@@ -331,7 +343,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed, nextTick, watch } from 'vue';
-import { analyzeVideo } from '../api/videoAnalysis';
+import { analyzeVideo, VIDEO_ANALYSIS_PROMPT, VIDEO_ANALYSIS_PROMPT_PRO } from '../api/videoAnalysis';
 import type { VideoAnalysisResponse, TokenUsage } from '../types/video';
 import { parseTimeToSeconds } from '../utils/videoCapture';
 import VideoSegmentPlayer from './VideoPlayer/VideoSegmentPlayer.vue';
@@ -351,6 +363,7 @@ const isDragOver = ref(false);
 const activeTab = ref('current');
 const loadingStep = ref(1);
 const selectedModel = ref<'qwen3-vl-flash' | 'qwen3-vl-plus'>('qwen3-vl-flash');
+const selectedPrompt = ref<'standard' | 'pro'>('standard');
 
 // 从 localStorage 加载 API Key
 onMounted(() => {
@@ -484,10 +497,14 @@ const handleAnalyze = async () => {
     loadingStep.value = 1;
     progressMessage.value = '准备上传视频...';
 
+    // 根据选择的提示词版本获取对应的提示词
+    const prompt = selectedPrompt.value === 'pro' ? VIDEO_ANALYSIS_PROMPT_PRO : VIDEO_ANALYSIS_PROMPT;
+
     const result = await analyzeVideo(
       videoFile.value,
       apiKey.value,
       selectedModel.value,
+      prompt,
       (message) => {
         progressMessage.value = message;
         // 根据消息内容判断步骤

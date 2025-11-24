@@ -1,6 +1,9 @@
 import type { VideoAnalysisResponse, TokenUsage } from '../types/video';
 import { uploadToTemporaryFile, validateVideoFile } from './temporaryFile';
-import { VIDEO_ANALYSIS_PROMPT } from '../prompts/videoAnalysis';
+import { VIDEO_ANALYSIS_PROMPT, VIDEO_ANALYSIS_PROMPT_PRO } from '../prompts/videoAnalysis';
+
+// 导出提示词选项供组件使用
+export { VIDEO_ANALYSIS_PROMPT, VIDEO_ANALYSIS_PROMPT_PRO };
 
 // AI 模型类型
 export type AIModel = 'qwen3-vl-flash' | 'qwen3-vl-plus';
@@ -17,10 +20,11 @@ function parseMarkdownTable(markdown: string): VideoAnalysisResponse {
   const rep: VideoAnalysisResponse['rep'] = [];
 
   // 找到表格开始位置（包含表头的行）
+  // 兼容两种表头格式：'运镜方式' 或 '运镜'
   let tableStartIndex = -1;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (line && line.includes('序号') && line.includes('景别') && line.includes('运镜方式')) {
+    if (line && line.includes('序号') && line.includes('景别') && (line.includes('运镜方式') || line.includes('运镜'))) {
       tableStartIndex = i;
       break;
     }
@@ -93,6 +97,7 @@ async function analyzeVideoByUrl(
   videoUrl: string,
   apiKey: string,
   model: AIModel,
+  prompt: string,
   onProgress?: (message: string) => void,
   onStream?: StreamCallback,
   onTokenUsage?: TokenUsageCallback
@@ -119,7 +124,7 @@ async function analyzeVideoByUrl(
             },
             {
               type: 'text',
-              text: VIDEO_ANALYSIS_PROMPT,
+              text: prompt,
             },
           ],
         },
@@ -207,6 +212,7 @@ async function analyzeVideoByTemporaryFile(
   file: File,
   apiKey: string,
   model: AIModel,
+  prompt: string,
   onProgress?: (message: string) => void,
   onStream?: StreamCallback,
   onTokenUsage?: TokenUsageCallback
@@ -226,7 +232,7 @@ async function analyzeVideoByTemporaryFile(
     onProgress?.('视频上传成功，正在调用 AI 分析...');
 
     // 使用返回的链接进行分析
-    return await analyzeVideoByUrl(uploadResult.downloadLink, apiKey, model, onProgress, onStream, onTokenUsage);
+    return await analyzeVideoByUrl(uploadResult.downloadLink, apiKey, model, prompt, onProgress, onStream, onTokenUsage);
 
   } catch (error) {
     if (error instanceof Error) {
@@ -241,15 +247,16 @@ export async function analyzeVideo(
   source: File | string,
   apiKey: string,
   model: AIModel = 'qwen3-vl-flash',
+  prompt: string = VIDEO_ANALYSIS_PROMPT,
   onProgress?: (message: string) => void,
   onStream?: StreamCallback,
   onTokenUsage?: TokenUsageCallback
 ): Promise<VideoAnalysisResponse> {
   if (typeof source === 'string') {
     // 如果是 URL，直接分析
-    return analyzeVideoByUrl(source, apiKey, model, onProgress, onStream, onTokenUsage);
+    return analyzeVideoByUrl(source, apiKey, model, prompt, onProgress, onStream, onTokenUsage);
   } else {
     // 如果是文件，通过临时文件服务上传后分析
-    return analyzeVideoByTemporaryFile(source, apiKey, model, onProgress, onStream, onTokenUsage);
+    return analyzeVideoByTemporaryFile(source, apiKey, model, prompt, onProgress, onStream, onTokenUsage);
   }
 }
