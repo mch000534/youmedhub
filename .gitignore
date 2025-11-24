@@ -25,3 +25,7 @@ dist-ssr
 
 # Custom directories
 guidang/
+
+# Local cache files (dev only)
+video-analysis-cache.json
+*.cache.json

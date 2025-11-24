@@ -101,6 +101,8 @@ function parseMarkdownTable(markdown: string): VideoAnalysisResponse {
     // 分割单元格，去除首尾的 |
     const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
 
+    console.log(`[DEBUG] 第 ${i} 行，共 ${cells.length} 列:`, cells);
+
     if (cells.length >= 10) {
       rep.push({
         sequenceNumber: parseInt(cells[0] || '0') || 0,
@@ -114,6 +116,8 @@ function parseMarkdownTable(markdown: string): VideoAnalysisResponse {
         endTime: cells[8] || '',
         duration: cells[9] || '',
       });
+    } else {
+      console.warn(`[DEBUG] 第 ${i} 行列数不足（${cells.length} < 10），跳过`);
     }
   }
 
@@ -270,6 +274,8 @@ async function analyzeVideoByUrl(
   }
 
   onProgress?.('正在解析分析结果...');
+
+  console.log('[DEBUG] 完整的 Markdown 内容:', fullContent);
 
   // 将 Markdown 转换为 JSON
   return parseMarkdownTable(fullContent);

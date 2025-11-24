@@ -276,12 +276,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed, nextTick } from 'vue';
+import { ref, onMounted, reactive, computed, nextTick, watch } from 'vue';
 import { analyzeVideo } from '../api/videoAnalysis';
 import type { VideoAnalysisResponse } from '../types/video';
 import { parseTimeToSeconds } from '../utils/videoCapture';
 import VideoSegmentPlayer from './VideoPlayer/VideoSegmentPlayer.vue';
 import VueMarkdownRenderer from 'vue-renderer-markdown';
+import { saveAnalysisToLocal } from '../utils/localCache';
 
 const API_KEY_STORAGE_KEY = 'dashscope_api_key';
 
@@ -354,6 +355,15 @@ const error = ref('');
 const analysisResult = ref<VideoAnalysisResponse | null>(null);
 const markdownContent = ref(''); // 流式 Markdown 内容
 const showMarkdown = ref(false); // 是否显示 Markdown
+
+// 监控流式内容变化
+watch(markdownContent, (newVal) => {
+  console.log('[DEBUG] markdownContent 更新:', newVal.substring(0, 100) + '...');
+});
+
+watch(showMarkdown, (newVal) => {
+  console.log('[DEBUG] showMarkdown 更新:', newVal);
+});
 
 // 触发文件选择
 const triggerFileInput = () => {
@@ -432,6 +442,7 @@ const handleAnalyze = async () => {
       (chunk) => {
         // 流式回调：逐步追加 Markdown 内容
         markdownContent.value += chunk;
+        console.log('[DEBUG] 流式内容更新，当前长度:', markdownContent.value.length);
       }
     );
 
@@ -441,6 +452,18 @@ const handleAnalyze = async () => {
     // 最终结果
     analysisResult.value = result;
     showMarkdown.value = false; // 隐藏 Markdown，显示表格
+
+    // 保存到本地缓存（仅开发环境）
+    if (import.meta.env.DEV && videoFile.value) {
+      await saveAnalysisToLocal(
+        videoFile.value.name,
+        videoFile.value.size,
+        selectedModel.value,
+        result,
+        markdownContent.value
+      );
+    }
+
     scrollToBottom();
 
   } catch (err) {
