@@ -65,30 +65,6 @@ function parseMarkdownTable(markdown: string): VideoAnalysisResponse {
   return { rep };
 }
 
-// 解析 API 返回的 JSON 内容
-function parseAnalysisResult(content: string): VideoAnalysisResponse {
-  // 尝试从返回内容中提取 JSON
-  let jsonContent = content;
-
-  // 如果返回内容包含 markdown 代码块，提取其中的 JSON
-  const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch && jsonMatch[1]) {
-    jsonContent = jsonMatch[1].trim();
-  }
-
-  try {
-    const result = JSON.parse(jsonContent) as VideoAnalysisResponse;
-    return result;
-  } catch {
-    // 尝试直接查找 JSON 对象
-    const jsonObjectMatch = content.match(/\{[\s\S]*"rep"[\s\S]*\}/);
-    if (jsonObjectMatch) {
-      return JSON.parse(jsonObjectMatch[0]) as VideoAnalysisResponse;
-    }
-    throw new Error('无法解析 AI 返回的 JSON 格式');
-  }
-}
-
 // 解析错误信息
 function parseErrorMessage(error: any): string {
   const message = error?.error?.message || error?.message || '';

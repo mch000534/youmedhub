@@ -335,6 +335,7 @@ import { analyzeVideo } from '../api/videoAnalysis';
 import type { VideoAnalysisResponse, TokenUsage } from '../types/video';
 import { parseTimeToSeconds } from '../utils/videoCapture';
 import VideoSegmentPlayer from './VideoPlayer/VideoSegmentPlayer.vue';
+// @ts-ignore - vue-renderer-markdown 没有类型定义
 import MarkdownRender from 'vue-renderer-markdown';
 import 'vue-renderer-markdown/index.css';
 import { saveAnalysisToLocal } from '../utils/localCache';

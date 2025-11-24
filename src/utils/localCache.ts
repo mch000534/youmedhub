@@ -1,8 +1,6 @@
 // 本地缓存工具 - 保存 AI 分析结果到本地文件
 import type { VideoAnalysisResponse } from '../types/video';
 
-const CACHE_FILE = 'video-analysis-cache.json';
-
 export interface CachedAnalysis {
   timestamp: string;
   videoName: string;
@@ -32,9 +30,6 @@ export async function saveAnalysisToLocal(
 
     // 将缓存数据转换为 JSON
     const jsonContent = JSON.stringify(cache, null, 2);
-
-    // 创建 Blob 对象
-    const blob = new Blob([jsonContent], { type: 'application/json' });
 
     // 在开发环境中使用 localStorage 作为临时存储
     if (import.meta.env.DEV) {

@@ -9,22 +9,83 @@ YouMedHub 是一个基于 Vue 3 + TypeScript 的视频分析应用，使用 AI �
 ## 开发命令
 
 ### 启动开发服务器
+
 ```bash
 pnpm dev
 ```
+
 启动 Vite 开发服务器（使用 rolldown-vite 变体）。
 
 ### 构建生产版本
+
 ```bash
 pnpm build
 ```
+
 运行 TypeScript 类型检查并构建应用。
 
 ### 预览生产构建
+
 ```bash
 pnpm preview
 ```
+
 在本地预览生产构建。
+
+## Git 工作流规范
+
+**重要：每次提交前必须先构建验证！**
+
+### 提交到功能分支
+
+1. 完成代码修改后，先运行构建验证：
+
+```bash
+pnpm build
+```
+
+2. 确认构建成功（无错误）后再提交：
+
+```bash
+git add .
+git commit -m "commit message"
+```
+
+### 合并到主分支
+
+1. 切换到主分支并合并功能分支前，先在功能分支验证构建：
+
+```bash
+# 在功能分支
+pnpm build
+
+# 确认无误后合并
+git checkout main
+git merge feature-branch
+```
+
+2. 合并后再次构建验证：
+
+```bash
+pnpm build
+```
+
+3. 确认构建成功后再推送到远程：
+
+```bash
+git push origin main
+```
+
+### 构建失败处理
+
+如果构建失败：
+
+- **不要提交**，先修复错误
+- 常见错误类型：
+  - TypeScript 类型错误
+  - 未使用的导入或变量
+  - 缺失的依赖
+  - 语法错误
 
 ## 架构设计
 
@@ -37,6 +98,7 @@ pnpm preview
 ### 核心组件
 
 **[VideoAnalyzer.vue](src/components/VideoAnalyzer.vue)** （主组件）：
+
 - 处理视频文件上传和预览
 - 通过模态对话框管理 API Key 配置
 - **AI 模型选择**：支持 qwen3-vl-flash（默认）和 qwen3-vl-plus
@@ -78,6 +140,7 @@ pnpm preview
 **[video.ts](src/types/video.ts)** 定义结构化输出格式：
 
 ```typescript
+// 视频分析脚本项
 interface VideoScriptItem {
   sequenceNumber: number;      // 序号
   shotType: string;            // 景别
@@ -86,8 +149,21 @@ interface VideoScriptItem {
   onScreenText: string;        // 画面文案
   voiceover: string;           // 口播
   audio: string;               // 音效/音乐
-  duration: string;            // 时长
-  keyframeTimes: string;       // 关键画面帧数
+  startTime: string;           // 开始时间 (MM:SS)
+  endTime: string;             // 结束时间 (MM:SS)
+  duration: string;            // 时长 (MM:SS)
+}
+
+// API 返回结果
+interface VideoAnalysisResponse {
+  rep: VideoScriptItem[];
+}
+
+// Token 使用统计
+interface TokenUsage {
+  prompt_tokens: number;       // 输入 Tokens
+  completion_tokens: number;   // 输出 Tokens
+  total_tokens: number;        // 总计 Tokens
 }
 ```
 
@@ -100,7 +176,8 @@ interface VideoScriptItem {
 ## API Key 配置
 
 应用需要阿里云的 DashScope API Key：
-- 获取 API Key：https://help.aliyun.com/zh/model-studio/get-api-key
+
+- 获取 API Key：<https://help.aliyun.com/zh/model-studio/get-api-key>
 - 可通过 UI 模态框配置，或在 `.env` 文件中设置（参见 `.env.example`）
 - 存储在 localStorage，键名为：`dashscope_api_key`
 
@@ -124,7 +201,7 @@ interface VideoScriptItem {
 
 应用集成了 tmpfile.link 免费临时文件服务来支持大文件上传：
 
-- **服务地址**：https://tmpfile.link
+- **服务地址**：<https://tmpfile.link>
 - **最大文件**：100MB
 - **保存期限**：7 天自动删除
 - **全球 CDN**：支持全球加速下载
