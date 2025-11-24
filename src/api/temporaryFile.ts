@@ -14,60 +14,40 @@ export type UploadProgressCallback = (loaded: number, total: number) => void;
 // 上传视频文件到临时文件服务
 export async function uploadToTemporaryFile(
   file: File,
-  onProgress?: UploadProgressCallback
+  _onProgress?: UploadProgressCallback
 ): Promise<TemporaryFileResponse> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
+  const formData = new FormData();
+  formData.append('file', file);
 
-    // 监听上传进度
-    if (onProgress) {
-      xhr.upload.addEventListener('progress', (event) => {
-        if (event.lengthComputable) {
-          onProgress(event.loaded, event.total);
-        }
-      });
+  try {
+    // 使用 fetch API 上传文件
+    const response = await fetch('https://tmpfile.link/api/upload', {
+      method: 'POST',
+      body: formData,
+      // 不设置 Content-Type，让浏览器自动设置 multipart/form-data 边界
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`上传失败，状态码: ${response.status}, 错误: ${errorText}`);
     }
 
-    // 监听响应完成
-    xhr.addEventListener('load', () => {
-      if (xhr.status === 200) {
-        try {
-          const response = JSON.parse(xhr.responseText) as TemporaryFileResponse;
-          resolve(response);
-        } catch (error) {
-          reject(new Error('解析服务器响应失败'));
-        }
-      } else {
-        try {
-          const errorResponse = JSON.parse(xhr.responseText);
-          reject(new Error(errorResponse.message || `上传失败，状态码: ${xhr.status}`));
-        } catch {
-          reject(new Error(`上传失败，状态码: ${xhr.status}`));
-        }
-      }
-    });
+    const result = await response.json() as TemporaryFileResponse;
+    return result;
 
-    // 监听错误
-    xhr.addEventListener('error', () => {
-      reject(new Error('网络错误，上传失败'));
-    });
+  } catch (error) {
+    // 如果是 CORS 错误，提供替代方案
+    if (error instanceof Error && error.message.includes('CORS')) {
+      throw new Error('由于浏览器安全限制，无法直接上传到临时文件服务。请尝试以下方案：\n1. 使用较小的视频文件（< 50MB）\n2. 或者将视频上传到其他平台后使用视频链接分析');
+    }
 
-    // 监听超时
-    xhr.addEventListener('timeout', () => {
-      reject(new Error('上传超时，请重试'));
-    });
+    // 如果是网络错误，提供更友好的提示
+    if (error instanceof Error && (error.message.includes('Failed to fetch') || error.message.includes('Network'))) {
+      throw new Error('网络连接失败，请检查网络连接或稍后重试');
+    }
 
-    // 配置请求
-    xhr.open('POST', 'https://tmpfile.link/api/upload');
-    xhr.timeout = 300000; // 5分钟超时
-
-    // 创建FormData
-    const formData = new FormData();
-    formData.append('file', file);
-
-    // 发送请求
-    xhr.send(formData);
-  });
+    throw error;
+  }
 }
 
 // 格式化文件大小
