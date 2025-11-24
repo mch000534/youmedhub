@@ -10,17 +10,11 @@ interface STSResponse {
   bucket: string;
 }
 
-export const config = {
-  runtime: 'edge',
-};
-
+// Serverless Function (Node.js Runtime)
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // 只允许 POST 请求
   if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
@@ -32,13 +26,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const bucket = process.env.ALIYUN_OSS_BUCKET;
 
     if (!accessKeyId || !accessKeySecret || !roleArn || !bucket) {
-      return new Response(
-        JSON.stringify({ error: '服务器配置错误：缺少必要的环境变量' }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        }
-      );
+      return res.status(500).json({
+        error: '服务器配置错误：缺少必要的环境变量'
+      });
     }
 
     // 生成 STS 临时凭证
@@ -59,25 +49,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       bucket,
     };
 
-    return new Response(JSON.stringify(response), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store',
-      },
-    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json(response);
   } catch (error) {
     console.error('[OSS STS] 生成临时凭证失败:', error);
-    return new Response(
-      JSON.stringify({
-        error: '生成临时凭证失败',
-        message: error instanceof Error ? error.message : String(error),
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+    return res.status(500).json({
+      error: '生成临时凭证失败',
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
