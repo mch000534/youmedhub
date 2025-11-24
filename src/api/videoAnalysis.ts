@@ -1,9 +1,9 @@
 import type { VideoAnalysisResponse, TokenUsage } from '../types/video';
 import { uploadToTemporaryFile, validateVideoFile } from './temporaryFile';
-import { VIDEO_ANALYSIS_PROMPT, VIDEO_ANALYSIS_PROMPT_PRO } from '../prompts/videoAnalysis';
+import { VIDEO_ANALYSIS_PROMPT } from '../prompts/videoAnalysis';
 
-// 导出提示词选项供组件使用
-export { VIDEO_ANALYSIS_PROMPT, VIDEO_ANALYSIS_PROMPT_PRO };
+// 导出提示词供组件使用
+export { VIDEO_ANALYSIS_PROMPT };
 
 // AI 模型类型
 export type AIModel = 'qwen3-vl-flash' | 'qwen3-vl-plus';
@@ -145,16 +145,22 @@ async function analyzeVideoByUrl(
   const reader = response.body?.getReader();
   const decoder = new TextDecoder();
   let fullContent = '';
+  let chunkCount = 0;
 
   if (!reader) {
     throw new Error('无法读取响应流');
   }
 
+  console.log('[DEBUG] 开始处理流式响应...');
+
   try {
     while (true) {
       const { done, value } = await reader.read();
 
-      if (done) break;
+      if (done) {
+        console.log(`[DEBUG] 流式响应结束，共接收 ${chunkCount} 个 chunks，总长度: ${fullContent.length}`);
+        break;
+      }
 
       // 解码数据块
       const chunk = decoder.decode(value, { stream: true });
@@ -175,7 +181,9 @@ async function analyzeVideoByUrl(
             const content = json.choices?.[0]?.delta?.content;
 
             if (content) {
+              chunkCount++;
               fullContent += content;
+              console.log(`[DEBUG] 接收第 ${chunkCount} 个 chunk，长度: ${content.length}，累计: ${fullContent.length}`);
               onStream?.(content); // 调用流式回调
             }
 
@@ -186,7 +194,7 @@ async function analyzeVideoByUrl(
             }
           } catch (e) {
             // 忽略解析错误，继续处理下一行
-            console.warn('解析 SSE 数据失败:', e);
+            console.warn('[DEBUG] 解析 SSE 数据失败:', e);
           }
         }
       }

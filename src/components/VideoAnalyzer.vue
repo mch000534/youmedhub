@@ -29,32 +29,11 @@
         <!-- 上传与控制卡片 -->
         <div class="custom-card flex-grow-1 d-flex flex-column">
           <div class="card-body-custom flex-grow-1 d-flex flex-column">
-            <!-- 标题与模型选择 -->
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <!-- 标题 -->
+            <div class="mb-3">
               <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.9rem;">
                 <i class="bi bi-cloud-arrow-up me-2 text-primary"></i>视频源
               </h6>
-              <div class="d-flex gap-2">
-                <select
-                  v-model="selectedModel"
-                  class="form-select form-select-sm"
-                  style="width: auto; font-size: 0.75rem;"
-                  :disabled="isAnalyzing"
-                >
-                  <option value="qwen3-vl-flash">qwen3-vl-flash</option>
-                  <option value="qwen3-vl-plus">qwen3-vl-plus</option>
-                </select>
-                <select
-                  v-model="selectedPrompt"
-                  class="form-select form-select-sm"
-                  style="width: auto; font-size: 0.75rem;"
-                  :disabled="isAnalyzing"
-                  title="选择分析提示词版本"
-                >
-                  <option value="standard">标准版</option>
-                  <option value="pro">专业版</option>
-                </select>
-              </div>
             </div>
 
             <!-- 上传区域 -->
@@ -184,17 +163,34 @@
                     <p>暂无数据，请先进行分析</p>
                 </div>
 
-                <!-- 流式 Markdown 显示 -->
-                <div v-if="showMarkdown" class="markdown-streaming-container p-3">
-                    <div class="mb-2 text-primary fw-bold">
-                        <i class="bi bi-cloud-download me-2"></i>正在接收分析结果...
+                <!-- 流式 Markdown 渐进式显示 -->
+                <div v-if="showMarkdown" class="streaming-markdown-container">
+                    <!-- 流式状态提示栏 -->
+                    <div class="streaming-status-bar">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span class="text-primary fw-bold">
+                                <i class="bi bi-cloud-download me-2"></i>AI 正在分析视频内容
+                            </span>
+                            <span class="badge bg-light text-secondary border">
+                                已接收 {{ markdownContent.length }} 字符
+                            </span>
+                        </div>
+                        <div class="streaming-hint">
+                            <i class="bi bi-info-circle me-1"></i>
+                            <small class="text-muted">内容正在实时更新...</small>
+                        </div>
                     </div>
-                    <MarkdownRender
-                        :content="markdownContent"
-                        :viewport-priority="true"
-                        :code-block-stream="true"
-                        class="markdown-content"
-                    />
+
+                    <!-- 实时渲染的 Markdown 内容 -->
+                    <div class="streaming-markdown-content p-4">
+                        <MarkdownRender
+                            :content="markdownContent"
+                            class="markdown-content"
+                        />
+                    </div>
                 </div>
 
                 <!-- 结果表格 -->
@@ -250,10 +246,10 @@
                                 <th style="width: 50px;">#</th>
                                 <th style="width: 70px;">景别</th>
                                 <th style="width: 70px;">运镜</th>
-                                <th style="width: 20%;">画面</th>
-                                <th style="width: 20%;">文案/口播</th>
-                                <th style="width: 120px;">音效/音乐</th>
-                                <th style="width: 150px;">时长</th>
+                                <th style="width: 20%;">画面内容描述</th>
+                                <th style="width: 20%;">画面文案/口播&台词</th>
+                                <th style="width: 120px;">音效/BGM</th>
+                                <th style="width: 150px;">镜头时长</th>
                                 <th style="width: 220px;">视频片段</th>
                             </tr>
                         </thead>
@@ -343,14 +339,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed, nextTick, watch } from 'vue';
-import { analyzeVideo, VIDEO_ANALYSIS_PROMPT, VIDEO_ANALYSIS_PROMPT_PRO } from '../api/videoAnalysis';
+import { analyzeVideo, VIDEO_ANALYSIS_PROMPT } from '../api/videoAnalysis';
 import type { VideoAnalysisResponse, TokenUsage } from '../types/video';
 import { parseTimeToSeconds } from '../utils/videoCapture';
 import VideoSegmentPlayer from './VideoPlayer/VideoSegmentPlayer.vue';
-// @ts-ignore - vue-renderer-markdown 没有类型定义
-import MarkdownRender from 'vue-renderer-markdown';
-import 'vue-renderer-markdown/index.css';
 import { saveAnalysisToLocal } from '../utils/localCache';
+import MarkdownRender from './MarkdownRender.vue';
 
 const API_KEY_STORAGE_KEY = 'dashscope_api_key';
 
@@ -362,8 +356,8 @@ const tableContainerRef = ref<HTMLElement | null>(null);
 const isDragOver = ref(false);
 const activeTab = ref('current');
 const loadingStep = ref(1);
-const selectedModel = ref<'qwen3-vl-flash' | 'qwen3-vl-plus'>('qwen3-vl-flash');
-const selectedPrompt = ref<'standard' | 'pro'>('standard');
+// 固定使用 qwen3-vl-flash 模型
+const selectedModel = 'qwen3-vl-flash' as const;
 
 // 从 localStorage 加载 API Key
 onMounted(() => {
@@ -497,14 +491,11 @@ const handleAnalyze = async () => {
     loadingStep.value = 1;
     progressMessage.value = '准备上传视频...';
 
-    // 根据选择的提示词版本获取对应的提示词
-    const prompt = selectedPrompt.value === 'pro' ? VIDEO_ANALYSIS_PROMPT_PRO : VIDEO_ANALYSIS_PROMPT;
-
     const result = await analyzeVideo(
       videoFile.value,
       apiKey.value,
-      selectedModel.value,
-      prompt,
+      selectedModel,
+      VIDEO_ANALYSIS_PROMPT,
       (message) => {
         progressMessage.value = message;
         // 根据消息内容判断步骤
@@ -517,13 +508,16 @@ const handleAnalyze = async () => {
       },
       (chunk) => {
         // 流式回调：逐步追加 Markdown 内容
+        console.log(`[DEBUG VideoAnalyzer] 接收流式 chunk，长度: ${chunk.length}，内容预览: "${chunk.substring(0, 50)}..."`);
+
         if (!showMarkdown.value) {
           // 第一个 chunk 到达时才显示 Markdown 容器
           showMarkdown.value = true;
-          console.log('[DEBUG] 开始显示流式 Markdown');
+          console.log('[DEBUG VideoAnalyzer] ✅ 启用 Markdown 显示模式');
         }
+
         markdownContent.value += chunk;
-        console.log('[DEBUG] 流式内容更新，当前长度:', markdownContent.value.length);
+        console.log(`[DEBUG VideoAnalyzer] Markdown 累计长度: ${markdownContent.value.length}`);
 
         // 自动滚动到底部，让用户看到最新内容
         nextTick(() => {
@@ -552,7 +546,7 @@ const handleAnalyze = async () => {
       await saveAnalysisToLocal(
         videoFile.value.name,
         videoFile.value.size,
-        selectedModel.value,
+        selectedModel,
         result,
         markdownContent.value
       );
@@ -840,14 +834,54 @@ const copyMarkdownToClipboard = async (event: Event) => {
     font-weight: 600;
 }
 
-/* Markdown 流式显示 */
-.markdown-streaming-container {
+/* 流式 Markdown 容器 */
+.streaming-markdown-container {
     background: #ffffff;
     border-radius: 8px;
-    overflow-y: auto;
-    max-height: calc(100vh - 300px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
+/* 流式状态提示栏 */
+.streaming-status-bar {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    border-bottom: 2px solid #4f46e5;
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 4px rgba(79, 70, 229, 0.1);
+}
+
+.streaming-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+/* 流式 Markdown 内容区域 */
+.streaming-markdown-content {
+    flex: 1;
+    overflow-y: auto;
+    background: #ffffff;
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Markdown 内容样式 */
 .markdown-content {
     font-size: 0.9rem;
     line-height: 1.6;
@@ -857,6 +891,18 @@ const copyMarkdownToClipboard = async (event: Event) => {
     width: 100%;
     border-collapse: collapse;
     margin: 1rem 0;
+    animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 .markdown-content table th,

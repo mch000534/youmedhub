@@ -25,6 +25,21 @@ interface STSCredentials {
 
 // 获取 STS 临时凭证
 async function getSTSCredentials(): Promise<STSCredentials> {
+  // 本地开发模式：直接使用环境变量中的主账号密钥
+  // 注意：这仅用于本地测试，生产环境应该使用 STS 临时凭证
+  if (import.meta.env.DEV && import.meta.env.VITE_ALIYUN_ACCESS_KEY_ID) {
+    console.log('[OSS 直传] 本地开发模式：使用环境变量中的凭证');
+    return {
+      accessKeyId: import.meta.env.VITE_ALIYUN_ACCESS_KEY_ID,
+      accessKeySecret: import.meta.env.VITE_ALIYUN_ACCESS_KEY_SECRET,
+      securityToken: '', // 主账号密钥不需要 securityToken
+      expiration: new Date(Date.now() + 3600000).toISOString(),
+      region: import.meta.env.VITE_ALIYUN_OSS_REGION || 'oss-cn-beijing',
+      bucket: import.meta.env.VITE_ALIYUN_OSS_BUCKET,
+    };
+  }
+
+  // 生产模式：通过 Vercel Serverless Function 获取 STS 临时凭证
   const response = await fetch('/api/oss-sts', {
     method: 'POST',
     headers: {
@@ -53,13 +68,20 @@ export async function uploadToTemporaryFile(
     console.log('[OSS 直传] 获取临时凭证成功');
 
     // 2. 创建 OSS 客户端
-    const client = new OSS({
+    // 注意：本地开发时不使用 stsToken（主账号密钥），生产环境使用 stsToken（临时凭证）
+    const clientConfig: any = {
       region: credentials.region,
       accessKeyId: credentials.accessKeyId,
       accessKeySecret: credentials.accessKeySecret,
-      stsToken: credentials.securityToken,
       bucket: credentials.bucket,
-    });
+    };
+
+    // 只有在有 securityToken 时才添加 stsToken 字段（生产环境）
+    if (credentials.securityToken) {
+      clientConfig.stsToken = credentials.securityToken;
+    }
+
+    const client = new OSS(clientConfig);
 
     // 3. 生成唯一文件名（保留原始扩展名）
     const timestamp = Date.now();
@@ -98,18 +120,24 @@ export async function uploadToTemporaryFile(
     return response;
 
   } catch (error) {
-    console.error('[OSS 直传] 上传失败:', error);
+    console.error('[OSS 直传] 上传失败，详细错误:', error);
 
     // 提供友好的错误提示
     if (error instanceof Error) {
-      if (error.message.includes('Failed to fetch') || error.message.includes('Network')) {
-        throw new Error('网络连接失败，请检查网络连接或稍后重试');
+      console.error('[OSS 直传] 错误信息:', error.message);
+      console.error('[OSS 直传] 错误堆栈:', error.stack);
+
+      if (error.message.includes('Failed to fetch') || error.message.includes('Network') || error.message.includes('XHR error')) {
+        throw new Error('网络连接失败或 CORS 配置问题，请检查：\n1. OSS Bucket 的 CORS 设置\n2. 网络连接\n3. AccessKey 权限配置');
       }
       if (error.message.includes('AccessDenied')) {
-        throw new Error('上传权限不足，请联系管理员');
+        throw new Error('上传权限不足，请检查 AccessKey 的 OSS 权限配置');
       }
       if (error.message.includes('InvalidAccessKeyId')) {
-        throw new Error('上传凭证无效，请刷新页面重试');
+        throw new Error('AccessKey 无效，请检查 .env 文件中的配置');
+      }
+      if (error.message.includes('SignatureDoesNotMatch')) {
+        throw new Error('签名验证失败，请检查 AccessKeySecret 是否正确');
       }
     }
 
