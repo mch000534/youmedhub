@@ -41,8 +41,10 @@ json格式字段对应:
 
 请只返回JSON格式的结果，不要包含其他文字说明。`;
 
-// 最大文件大小 (100MB)
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
+// 最大文件大小 (15MB)
+// 注意：由于base64编码会增加约33%的大小，且API有20MB字符串长度限制
+// 因此实际上传限制约为15MB，编码后约20MB
+const MAX_FILE_SIZE = 15 * 1024 * 1024;
 
 // 将视频文件转换为 base64
 export async function videoToBase64(file: File): Promise<string> {
@@ -255,7 +257,7 @@ function parseErrorMessage(error: any): string {
     return '参数无效，请检查视频格式是否支持（建议使用 MP4 格式）';
   }
   if (message.includes('TooLarge') || message.includes('size')) {
-    return '视频文件过大，请使用小于 100MB 的视频或使用在线视频 URL';
+    return '视频文件过大，请使用小于 15MB 的视频或使用在线视频 URL';
   }
   if (message.includes('AuthenticationNotPass')) {
     return 'API Key 验证失败，请检查 API Key 是否正确';
@@ -331,7 +333,7 @@ async function analyzeVideoByFileNormal(
 ): Promise<VideoAnalysisResponse> {
   // 检查文件大小
   if (file.size > MAX_FILE_SIZE) {
-    throw new Error(`视频文件过大（${(file.size / 1024 / 1024).toFixed(1)}MB），请使用小于 100MB 的视频或使用在线视频 URL 模式`);
+    throw new Error(`视频文件过大（${(file.size / 1024 / 1024).toFixed(1)}MB），请使用小于 15MB 的视频或使用在线视频 URL 模式`);
   }
 
   onProgress?.('正在读取视频文件...');
@@ -521,7 +523,7 @@ async function analyzeVideoByFileStreaming(
 ): Promise<VideoAnalysisResponse> {
   // 检查文件大小
   if (file.size > MAX_FILE_SIZE) {
-    throw new Error(`视频文件过大（${(file.size / 1024 / 1024).toFixed(1)}MB），请使用小于 100MB 的视频或使用在线视频 URL 模式`);
+    throw new Error(`视频文件过大（${(file.size / 1024 / 1024).toFixed(1)}MB），请使用小于 15MB 的视频或使用在线视频 URL 模式`);
   }
 
   onProgress?.('正在读取视频文件...');
