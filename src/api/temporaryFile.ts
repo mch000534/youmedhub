@@ -79,11 +79,13 @@ export async function uploadToTemporaryFile(
       },
     });
 
-    // 构建文件访问 URL
-    const fileUrl = `https://${credentials.bucket}.${credentials.region}.aliyuncs.com/${ossFileName}`;
-    console.log('[OSS 直传] 上传成功:', fileUrl);
+    // 5. 生成带签名的临时访问 URL（有效期 24 小时）
+    const fileUrl = client.signatureUrl(ossFileName, {
+      expires: 86400, // 24 小时 = 86400 秒
+    });
+    console.log('[OSS 直传] 上传成功，生成签名 URL:', fileUrl);
 
-    // 5. 返回标准化的响应格式
+    // 6. 返回标准化的响应格式
     const response: TemporaryFileResponse = {
       fileName: file.name,
       downloadLink: fileUrl,
