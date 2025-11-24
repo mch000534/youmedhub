@@ -122,26 +122,21 @@
 
       <!-- 右侧面板 -->
       <main class="right-panel">
-        <!-- 3. 分析 Loading 遮罩 (位于右侧) -->
-        <div v-if="isAnalyzing" class="right-panel-loading">
-            <div class="loading-content">
-                <div class="loading-spinner-lg"></div>
-                <h5 class="fw-bold text-dark mb-2">正在智能分析中</h5>
-                <p class="text-muted small">这可能需要几分钟时间，请耐心等待...</p>
-                <p class="text-primary small">{{ progressMessage }}</p>
-                
-                <!-- 模拟进度步骤 -->
-                <div class="loading-steps">
-                    <div class="loading-step" :class="{ active: loadingStep >= 1 }">
-                        <i class="bi" :class="loadingStep >= 1 ? 'bi-check-circle-fill' : 'bi-circle'"></i> 视频上传与预处理
-                    </div>
-                    <div class="loading-step" :class="{ active: loadingStep >= 2 }">
-                        <i class="bi" :class="loadingStep >= 2 ? 'bi-check-circle-fill' : 'bi-circle'"></i> AI 场景识别与分析
-                    </div>
-                    <div class="loading-step" :class="{ active: loadingStep >= 3 }">
-                        <i class="bi" :class="loadingStep >= 3 ? 'bi-check-circle-fill' : 'bi-circle'"></i> 生成结构化结果
-                    </div>
+        <!-- 紧凑进度条 -->
+        <div v-if="isAnalyzing" class="compact-progress-bar">
+            <div class="progress-info">
+                <span class="text-primary fw-bold">{{ progressMessage }}</span>
+                <div class="progress-steps">
+                    <span class="step" :class="{ active: loadingStep >= 1 }">上传</span>
+                    <span class="mx-1">→</span>
+                    <span class="step" :class="{ active: loadingStep >= 2 }">分析</span>
+                    <span class="mx-1">→</span>
+                    <span class="step" :class="{ active: loadingStep >= 3 }">完成</span>
                 </div>
+            </div>
+            <div class="progress" style="height: 3px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                     :style="{ width: (loadingStep / 3 * 100) + '%' }"></div>
             </div>
         </div>
 
@@ -172,13 +167,21 @@
           <div v-show="activeTab === 'current'" class="tab-pane fade show active h-100 d-flex flex-column">
             <div id="resultsContainer" ref="tableContainerRef">
                 <!-- 空状态 -->
-                <div v-if="!hasResults && !isAnalyzing" class="d-flex flex-column align-items-center justify-content-center h-100 text-muted" style="min-height: 300px;">
+                <div v-if="!hasResults && !isAnalyzing && !showMarkdown" class="d-flex flex-column align-items-center justify-content-center h-100 text-muted" style="min-height: 300px;">
                     <i class="bi bi-clipboard-data display-4 mb-3 opacity-25"></i>
                     <p>暂无数据，请先进行分析</p>
                 </div>
 
+                <!-- 流式 Markdown 显示 -->
+                <div v-if="showMarkdown" class="markdown-streaming-container p-3">
+                    <div class="mb-2 text-primary fw-bold">
+                        <i class="bi bi-cloud-download me-2"></i>正在接收分析结果...
+                    </div>
+                    <VueMarkdownRenderer :source="markdownContent" class="markdown-content" />
+                </div>
+
                 <!-- 结果表格 -->
-                <template v-if="hasResults">
+                <template v-if="hasResults && !showMarkdown">
                     <div class="d-flex justify-content-between align-items-center p-3 bg-white border-bottom sticky-top">
                         <span class="fw-bold text-primary"><i class="bi bi-check-all me-1"></i> {{ displayedItems.length }} 个场景</span>
                     </div>
@@ -278,6 +281,7 @@ import { analyzeVideo } from '../api/videoAnalysis';
 import type { VideoAnalysisResponse } from '../types/video';
 import { parseTimeToSeconds } from '../utils/videoCapture';
 import VideoSegmentPlayer from './VideoPlayer/VideoSegmentPlayer.vue';
+import VueMarkdownRenderer from 'vue-renderer-markdown';
 
 const API_KEY_STORAGE_KEY = 'dashscope_api_key';
 
@@ -348,6 +352,8 @@ const isAnalyzing = ref(false);
 const progressMessage = ref('');
 const error = ref('');
 const analysisResult = ref<VideoAnalysisResponse | null>(null);
+const markdownContent = ref(''); // 流式 Markdown 内容
+const showMarkdown = ref(false); // 是否显示 Markdown
 
 // 触发文件选择
 const triggerFileInput = () => {
@@ -399,6 +405,8 @@ const handleAnalyze = async () => {
   isAnalyzing.value = true;
   error.value = '';
   analysisResult.value = null;
+  markdownContent.value = '';
+  showMarkdown.value = false;
   progressMessage.value = '准备分析...';
   loadingStep.value = 1;
 
@@ -416,9 +424,14 @@ const handleAnalyze = async () => {
         // 根据消息内容判断步骤
         if (message.includes('上传')) {
           loadingStep.value = 1;
-        } else if (message.includes('分析')) {
+        } else if (message.includes('分析') || message.includes('接收')) {
           loadingStep.value = 2;
+          showMarkdown.value = true; // 开始显示 Markdown
         }
+      },
+      (chunk) => {
+        // 流式回调：逐步追加 Markdown 内容
+        markdownContent.value += chunk;
       }
     );
 
@@ -427,11 +440,13 @@ const handleAnalyze = async () => {
 
     // 最终结果
     analysisResult.value = result;
+    showMarkdown.value = false; // 隐藏 Markdown，显示表格
     scrollToBottom();
 
   } catch (err) {
     error.value = err instanceof Error ? err.message : '分析失败，请重试';
     analysisResult.value = null;
+    showMarkdown.value = false;
   } finally {
     // 延迟一点关闭 loading，让用户看到完成状态
     setTimeout(() => {
@@ -646,60 +661,71 @@ const scrollToBottom = () => {
 .status-error { background-color: #fef2f2; color: #b91c1c; }
 .status-success { background-color: #ecfdf5; color: #047857; }
 
-/* Loading 遮罩 */
-.right-panel-loading {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.95);
-    z-index: 100;
+/* 紧凑进度条 */
+.compact-progress-bar {
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0.75rem 1rem;
+}
+
+.progress-info {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    backdrop-filter: blur(2px);
-}
-
-.loading-content {
-    text-align: center;
-}
-
-.loading-spinner-lg {
-    width: 3rem;
-    height: 3rem;
-    border: 3px solid #e0e7ff;
-    border-top: 3px solid #4f46e5;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 1.5rem auto;
-}
-
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-.loading-steps {
-    margin-top: 2rem;
-    text-align: left;
-    width: 200px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.loading-step {
-    display: flex;
+    justify-content: space-between;
     align-items: center;
     margin-bottom: 0.5rem;
-    color: #6b7280;
-    font-size: 0.9rem;
-    opacity: 0.5;
-    transition: all 0.3s;
+    font-size: 0.85rem;
 }
 
-.loading-step.active {
+.progress-steps {
+    display: flex;
+    align-items: center;
+    font-size: 0.75rem;
+}
+
+.progress-steps .step {
+    color: #9ca3af;
+    transition: color 0.3s;
+}
+
+.progress-steps .step.active {
     color: #4f46e5;
-    font-weight: 500;
-    opacity: 1;
+    font-weight: 600;
+}
+
+/* Markdown 流式显示 */
+.markdown-streaming-container {
+    background: #ffffff;
+    border-radius: 8px;
+    overflow-y: auto;
+    max-height: calc(100vh - 300px);
+}
+
+.markdown-content {
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.markdown-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+.markdown-content table th,
+.markdown-content table td {
+    border: 1px solid #e5e7eb;
+    padding: 0.5rem;
+    text-align: left;
+}
+
+.markdown-content table th {
+    background-color: #f8fafc;
+    font-weight: 600;
+    color: #374151;
+}
+
+.markdown-content table tr:nth-child(even) {
+    background-color: #f9fafb;
 }
 
 /* Tabs */
