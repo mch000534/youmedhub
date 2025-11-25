@@ -128,7 +128,7 @@ watch(() => props.startTime, (newVal) => {
   width: 100%;
   height: 100%;
   min-height: 80px;
-  background: #000;
+  background: rgba(0, 0, 0, 0.05);
   border-radius: 4px;
   overflow: hidden;
   display: flex;
@@ -147,8 +147,8 @@ watch(() => props.startTime, (newVal) => {
   position: absolute;
   bottom: 4px;
   right: 4px;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
+  background: var(--overlay-bg);
+  color: var(--color-text-invert);
   font-size: 10px;
   padding: 2px 4px;
   border-radius: 2px;
@@ -161,11 +161,11 @@ watch(() => props.startTime, (newVal) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(50, 50, 50, 0.8);
+  background: var(--overlay-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ff4d4f;
+  color: var(--color-error);
   font-size: 12px;
 }
 </style>

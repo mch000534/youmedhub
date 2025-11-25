@@ -3,7 +3,7 @@
     <!-- 1. 顶部栏：紧凑高度 -->
     <header class="header-section">
       <div class="brand-title">
-        <i class="bi bi-camera-reels-fill"></i>
+        <img src="/logo.svg" alt="YouMedHub Logo" class="brand-logo" />
         <span>YouMedHub</span>
         <span class="brand-subtitle">AI 视频内容分析</span>
       </div>
@@ -309,7 +309,7 @@
     </div>
 
     <!-- API Key 配置弹窗 -->
-    <div v-if="showApiKeyModal" class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
+    <div v-if="showApiKeyModal" class="modal fade show" style="display: block; background: var(--overlay-bg);" tabindex="-1">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
           <div class="modal-header">
@@ -622,15 +622,17 @@ const copyMarkdownToClipboard = async (event: Event) => {
 <style scoped>
 /* 复用参考文件中的 CSS 变量和样式 */
 :root {
-    --primary-color: #4f46e5;
-    --primary-hover: #4338ca;
-    --bg-color: #f3f4f6;
-    --card-bg: #ffffff;
-    --text-primary: #111827;
-    --text-secondary: #6b7280;
-    --border-color: #e5e7eb;
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    /* Variables mapped to global OKLCH system */
+    --primary-color: var(--color-primary);
+    --primary-hover: var(--color-primary-hover);
+    --bg-color: var(--color-bg-page);
+    --card-bg: var(--color-bg-card);
+    --text-primary: var(--color-text-primary);
+    --text-secondary: var(--color-text-secondary);
+    --border-color: var(--color-border);
+    --shadow-sm: var(--shadow-sm);
+    --shadow-md: var(--shadow-md);
+    
     --radius-lg: 12px;
     --radius-md: 8px;
     --header-height: 50px;
@@ -641,21 +643,21 @@ const copyMarkdownToClipboard = async (event: Event) => {
     flex-direction: column;
     height: 100vh;
     width: 100vw;
-    background: #f3f4f6; /* fallback */
     background: var(--bg-color);
     overflow: hidden;
+    color: var(--text-primary);
 }
 
 /* 顶部栏 */
 .header-section {
-    background: #ffffff;
+    background: oklch(1 0 0);
     height: 50px;
     padding: 0 1.5rem;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-sm);
     z-index: 10;
     flex-shrink: 0;
 }
@@ -663,19 +665,25 @@ const copyMarkdownToClipboard = async (event: Event) => {
 .brand-title {
     font-size: 1rem;
     font-weight: 700;
-    color: #4f46e5;
+    color: var(--primary-color);
     display: flex;
     align-items: center;
     gap: 0.5rem;
 }
 
+.brand-logo {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
 .brand-subtitle {
     font-size: 0.8rem;
-    color: #6b7280;
+    color: var(--text-secondary);
     font-weight: 400;
     margin-left: 0.5rem;
     padding-left: 0.5rem;
-    border-left: 1px solid #e5e7eb;
+    border-left: 1px solid var(--border-color);
     display: inline-block;
 }
 
@@ -690,6 +698,8 @@ const copyMarkdownToClipboard = async (event: Event) => {
 
 /* 左侧面板 */
 .left-panel {
+    background: #ffffff;
+    border-radius: 12px;
     width: 360px;
     flex-shrink: 0;
     display: flex;
@@ -701,22 +711,22 @@ const copyMarkdownToClipboard = async (event: Event) => {
 /* 右侧面板 */
 .right-panel {
     flex: 1;
-    background: #ffffff;
+    background: oklch(1 0 0);
     border-radius: 12px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border-color);
     position: relative;
 }
 
 /* 卡片通用样式 */
 .custom-card {
-    background: #ffffff;
+    background: var(--card-bg);
     border-radius: 12px;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    border: 1px solid #e5e7eb;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border-color);
     overflow: hidden;
 }
 
@@ -726,11 +736,11 @@ const copyMarkdownToClipboard = async (event: Event) => {
 
 /* 上传区域 */
 .upload-area {
-    border: 2px dashed #cbd5e1;
+    border: 2px dashed var(--color-border-hover);
     border-radius: 8px;
     padding: 2rem 1rem;
     text-align: center;
-    background: #f8fafc;
+    background: var(--color-primary-subtle);
     transition: all 0.3s ease;
     cursor: pointer;
     height: 200px;
@@ -742,13 +752,13 @@ const copyMarkdownToClipboard = async (event: Event) => {
 }
 
 .upload-area:hover, .upload-area.dragover {
-    border-color: #4f46e5;
-    background: #eef2ff;
+    border-color: var(--primary-color);
+    background: var(--color-primary-light);
 }
 
 .upload-icon {
     font-size: 2rem;
-    color: #94a3b8;
+    color: var(--text-secondary);
     margin-bottom: 0.5rem;
 }
 
@@ -758,10 +768,10 @@ const copyMarkdownToClipboard = async (event: Event) => {
 }
 
 .video-wrapper {
-    background: #000;
+    background: black;
     border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
     position: relative;
     display: flex;
     align-items: center;
@@ -781,16 +791,16 @@ const copyMarkdownToClipboard = async (event: Event) => {
     align-items: center;
     justify-content: space-between;
     font-size: 0.75rem;
-    color: #6b7280;
-    background: #f9fafb;
+    color: var(--text-secondary);
+    background: var(--color-bg-hover);
     padding: 0.4rem 0.6rem;
     border-radius: 4px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border-color);
 }
 
 .video-compact-info .divider {
     margin: 0 0.5rem;
-    color: #d1d5db;
+    color: var(--color-border-hover);
 }
 
 /* 状态消息 */
@@ -800,13 +810,13 @@ const copyMarkdownToClipboard = async (event: Event) => {
     font-size: 0.85rem;
     text-align: center;
 }
-.status-error { background-color: #fef2f2; color: #b91c1c; }
-.status-success { background-color: #ecfdf5; color: #047857; }
+.status-error { background-color: var(--color-error-bg); color: var(--color-error); }
+.status-success { background-color: var(--color-success-bg); color: var(--color-success); }
 
 /* 紧凑进度条 */
 .compact-progress-bar {
-    background: #f8fafc;
-    border-bottom: 1px solid #e5e7eb;
+    background: var(--color-bg-hover);
+    border-bottom: 1px solid var(--border-color);
     padding: 0.75rem 1rem;
 }
 
@@ -825,18 +835,18 @@ const copyMarkdownToClipboard = async (event: Event) => {
 }
 
 .progress-steps .step {
-    color: #9ca3af;
+    color: var(--color-text-tertiary);
     transition: color 0.3s;
 }
 
 .progress-steps .step.active {
-    color: #4f46e5;
+    color: var(--primary-color);
     font-weight: 600;
 }
 
 /* 流式 Markdown 容器 */
 .streaming-markdown-container {
-    background: #ffffff;
+    background: var(--card-bg);
     border-radius: 8px;
     overflow: hidden;
     display: flex;
@@ -846,14 +856,14 @@ const copyMarkdownToClipboard = async (event: Event) => {
 
 /* 流式状态提示栏 */
 .streaming-status-bar {
-    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
-    border-bottom: 2px solid #4f46e5;
+    background: linear-gradient(135deg, var(--color-primary-subtle) 0%, var(--color-primary-light) 100%);
+    border-bottom: 2px solid var(--primary-color);
     padding: 1rem 1.5rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
-    box-shadow: 0 2px 4px rgba(79, 70, 229, 0.1);
+    box-shadow: var(--shadow-sm);
 }
 
 .streaming-hint {
@@ -866,7 +876,7 @@ const copyMarkdownToClipboard = async (event: Event) => {
 .streaming-markdown-content {
     flex: 1;
     overflow-y: auto;
-    background: #ffffff;
+    background: var(--card-bg);
     animation: fadeIn 0.3s ease-in;
 }
 
@@ -907,31 +917,31 @@ const copyMarkdownToClipboard = async (event: Event) => {
 
 .markdown-content table th,
 .markdown-content table td {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border-color);
     padding: 0.5rem;
     text-align: left;
 }
 
 .markdown-content table th {
-    background-color: #f8fafc;
+    background-color: var(--color-bg-hover);
     font-weight: 600;
-    color: #374151;
+    color: var(--text-secondary);
 }
 
 .markdown-content table tr:nth-child(even) {
-    background-color: #f9fafb;
+    background-color: var(--color-bg-hover);
 }
 
 /* Tabs */
 .nav-tabs {
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--border-color);
     padding: 0 1rem;
     height: 45px;
 }
 
 .nav-tabs .nav-link {
     border: none;
-    color: #6b7280;
+    color: var(--text-secondary);
     padding: 0 1rem;
     height: 45px;
     line-height: 45px;
@@ -941,8 +951,8 @@ const copyMarkdownToClipboard = async (event: Event) => {
 }
 
 .nav-tabs .nav-link.active {
-    color: #4f46e5;
-    border-bottom: 2px solid #4f46e5;
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
     font-weight: 500;
 }
 
@@ -954,14 +964,14 @@ const copyMarkdownToClipboard = async (event: Event) => {
 }
 
 .table thead th {
-    background-color: #f8fafc;
-    border-bottom: 1px solid #e5e7eb;
-    color: #6b7280;
+    background-color: var(--color-bg-hover);
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
     font-weight: 600;
     padding: 0.75rem 1rem;
     position: sticky;
-    top: 48px; /* "x个场景"那一行的高度 */
-    z-index: 9; /* 比"x个场景"行低一级 */
+    top: 0;
+    z-index: 9;
 }
 
 .table tbody td {
@@ -990,14 +1000,14 @@ const copyMarkdownToClipboard = async (event: Event) => {
 
 /* 滚动条优化 */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--color-border-hover); border-radius: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* 原始 Markdown 渲染容器 */
 .raw-markdown-render {
-    background: #ffffff;
+    background: var(--card-bg);
     border-radius: 8px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border-color);
     overflow: auto;
 }
 

@@ -17,7 +17,7 @@ html, body, #app {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background: #ffffff;
+  background: var(--color-bg-page);
 }
 
 body {
@@ -25,5 +25,6 @@ body {
     Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color: var(--color-text-primary);
 }
 </style>

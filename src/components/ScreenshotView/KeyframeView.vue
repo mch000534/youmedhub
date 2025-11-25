@@ -54,39 +54,39 @@ defineEmits<{
   height: 90px; /* 固定高度，或者使用 auto 保持比例 */
   object-fit: contain;
   border-radius: 4px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   cursor: zoom-in;
   transition: all 0.2s;
-  background: #f0f0f0;
+  background: var(--color-bg-hover);
 }
 
 .preview-image:hover {
-  border-color: #2563eb;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px oklch(62% 0.22 var(--primary-hue) / 0.2);
 }
 
 .btn-capture {
   padding: 0.35rem 0.75rem;
   font-size: 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border);
   border-radius: 4px;
-  background: #ffffff;
-  color: #374151;
+  background: var(--card-bg);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
 }
 
 .btn-capture:hover:not(:disabled) {
-  background: #f3f4f6;
-  border-color: #2563eb;
-  color: #2563eb;
+  background: var(--color-primary-subtle);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .btn-capture:disabled {
-  background: #f9fafb;
-  color: #9ca3af;
+  background: var(--color-bg-hover);
+  color: var(--text-tertiary);
   cursor: not-allowed;
-  border-color: #e5e7eb;
+  border-color: var(--color-border);
 }
 </style>

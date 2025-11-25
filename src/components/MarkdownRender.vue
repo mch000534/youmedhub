@@ -17,7 +17,7 @@ const props = defineProps<{
 :deep(.markdown-render) {
   font-size: 0.9rem;
   line-height: 1.6;
-  color: #374151;
+  color: var(--color-text-primary);
 }
 
 /* 表格样式优化 */
@@ -26,40 +26,40 @@ const props = defineProps<{
   border-collapse: collapse;
   margin: 1rem 0;
   font-size: 0.85rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
   border-radius: 6px;
   overflow: hidden;
 }
 
 :deep(table th),
 :deep(table td) {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
   padding: 0.6rem 0.75rem;
   text-align: left;
   vertical-align: top;
 }
 
 :deep(table th) {
-  background-color: #f8fafc;
+  background-color: var(--color-bg-hover);
   font-weight: 600;
-  color: #374151;
+  color: var(--color-text-primary);
   position: sticky;
   top: 0;
   z-index: 10;
 }
 
 :deep(table tr:nth-child(even)) {
-  background-color: #f9fafb;
+  background-color: var(--color-bg-hover);
 }
 
 :deep(table tr:hover) {
-  background-color: #f3f4f6;
+  background-color: var(--color-primary-subtle);
   transition: background-color 0.2s ease;
 }
 
 /* 代码块样式 */
 :deep(pre) {
-  background-color: #f8fafc;
+  background-color: var(--color-bg-hover);
   padding: 1rem;
   border-radius: 6px;
   overflow-x: auto;
@@ -67,7 +67,7 @@ const props = defineProps<{
 }
 
 :deep(code) {
-  background-color: #f3f4f6;
+  background-color: var(--color-bg-hover);
   padding: 0.125rem 0.25rem;
   border-radius: 3px;
   font-family: 'Courier New', monospace;
@@ -89,7 +89,7 @@ const props = defineProps<{
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
   font-weight: 600;
-  color: #111827;
+  color: var(--color-text-primary);
 }
 
 :deep(h1) { font-size: 1.5rem; }
@@ -113,7 +113,7 @@ const props = defineProps<{
 
 /* 链接样式 */
 :deep(a) {
-  color: #4f46e5;
+  color: var(--color-primary);
   text-decoration: none;
 }
 
@@ -123,17 +123,17 @@ const props = defineProps<{
 
 /* 引用块 */
 :deep(blockquote) {
-  border-left: 4px solid #4f46e5;
+  border-left: 4px solid var(--color-primary);
   padding-left: 1rem;
   margin-left: 0;
-  color: #6b7280;
+  color: var(--color-text-secondary);
   font-style: italic;
 }
 
 /* 水平线 */
 :deep(hr) {
   border: none;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--color-border);
   margin: 1.5rem 0;
 }
 
