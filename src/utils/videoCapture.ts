@@ -105,7 +105,7 @@ export async function captureFrameAtTime(
         // 恢复原始状态
         video.currentTime = originalTime;
         if (!originalPaused) {
-          video.play().catch(() => {});
+          video.play().catch(() => { });
         }
 
         resolve(imageDataUrl);
@@ -248,4 +248,61 @@ export function downloadVideo(blobUrl: string, filename: string) {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+// 从视频文件中按指定间隔提取帧
+export async function extractFramesFromVideoFile(
+  videoFile: File,
+  framesPerSecond: number = 0.5,
+  maxFrames: number = 20
+): Promise<string[]> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(videoFile);
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+
+    const frames: string[] = [];
+
+    video.onloadedmetadata = async () => {
+      try {
+        const duration = video.duration;
+        let interval = 1 / framesPerSecond;
+
+        // 如果按间隔计算的帧数超过最大限制，则调整间隔
+        if (duration / interval > maxFrames) {
+          interval = duration / maxFrames;
+        }
+
+        const timestamps: number[] = [];
+        for (let t = 0; t < duration; t += interval) {
+          timestamps.push(t);
+        }
+
+        console.log(`[extractFrames] 视频时长: ${duration}s, 计划提取 ${timestamps.length} 帧`);
+
+        // 串行提取每一帧
+        for (const time of timestamps) {
+          try {
+            const frame = await captureFrameAtTime(video, time);
+            frames.push(frame); // captureFrameAtTime 返回完整的 data URL
+          } catch (err) {
+            console.warn(`[extractFrames] 提取第 ${time}s 帧失败:`, err);
+          }
+        }
+
+        URL.revokeObjectURL(video.src);
+        resolve(frames);
+      } catch (error) {
+        URL.revokeObjectURL(video.src);
+        reject(error);
+      }
+    };
+
+    video.onerror = () => {
+      URL.revokeObjectURL(video.src);
+      reject(new Error('无法加载视频文件进行抽帧'));
+    };
+  });
 }

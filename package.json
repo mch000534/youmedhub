@@ -11,7 +11,6 @@
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
-    "ali-oss": "^6.23.0",
     "bootstrap": "5.3.0",
     "bootstrap-icons": "1.10.0",
     "markdown-it": "^14.1.0",
@@ -26,7 +25,6 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@types/ali-oss": "^6.16.13",
     "@types/node": "^24.10.1",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/tsconfig": "^0.8.1",

@@ -48,7 +48,7 @@
             >
               <i class="bi bi-cloud-upload upload-icon"></i>
               <h6 class="mb-1 fw-bold text-dark" style="font-size: 0.9rem;">点击或拖拽上传</h6>
-              <p class="text-muted small mb-0">支持 MP4, MOV, AVI 等格式（文件大小 < 100MB，通过临时文件服务上传）</p>
+              <p class="text-muted small mb-0">支援 MP4, MOV, AVI 等格式（檔案大小 < 20MB）</p>
               <input 
                 ref="fileInputRef" 
                 type="file" 
@@ -91,8 +91,20 @@
                 :disabled="!videoFile || !apiKey || isAnalyzing"
               >
                 <i class="bi bi-magic me-2"></i>
-                {{ isAnalyzing ? '分析中...' : '开始分析' }}
+                {{ isAnalyzing ? '分析中...' : '開始分析' }}
               </button>
+
+              <!-- 模型選擇 -->
+              <div class="model-selector">
+                <label class="form-label text-muted small mb-1">
+                  <i class="bi bi-cpu me-1"></i>AI 模型
+                </label>
+                <select v-model="selectedModel" class="form-select form-select-sm">
+                  <option v-for="model in AI_MODELS" :key="model.id" :value="model.id">
+                    {{ model.name }} - {{ model.description }}
+                  </option>
+                </select>
+              </div>
               
               <button 
                 v-if="videoFile && !isAnalyzing" 
@@ -326,12 +338,14 @@
             <button type="button" class="btn-close" @click="showApiKeyModal = false"></button>
           </div>
           <div class="modal-body">
-            <p class="text-muted mb-3 small">请输入通义千问 API Key 以使用视频分析功能</p>
+            <p class="text-muted mb-3 small">
+              請輸入 <a href="https://openrouter.ai/settings/keys" target="_blank">OpenRouter API Key</a> 以使用視頻分析功能
+            </p>
             <input
               v-model="tempApiKey"
               type="password"
               class="form-control"
-              placeholder="请输入 API Key"
+              placeholder="請輸入 OpenRouter API Key (sk-or-v1-...)"
               @keyup.enter="confirmApiKey"
             />
           </div>
@@ -348,7 +362,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed, nextTick, watch } from 'vue';
-import { analyzeVideo, VIDEO_ANALYSIS_PROMPT } from '../api/videoAnalysis';
+import { analyzeVideo, VIDEO_ANALYSIS_PROMPT, AI_MODELS, DEFAULT_MODEL, type AIModel } from '../api/videoAnalysis';
 import type { VideoAnalysisResponse, TokenUsage } from '../types/video';
 import { parseTimeToSeconds } from '../utils/videoCapture';
 import VideoSegmentPlayer from './VideoPlayer/VideoSegmentPlayer.vue';
@@ -356,7 +370,8 @@ import { saveAnalysisToLocal } from '../utils/localCache';
 import MarkdownRender from './MarkdownRender.vue';
 import { exportToExcel } from '../utils/exportExcel';
 
-const API_KEY_STORAGE_KEY = 'dashscope_api_key';
+const API_KEY_STORAGE_KEY = 'openrouter_api_key';
+const MODEL_STORAGE_KEY = 'openrouter_model';
 
 // 响应式数据
 const apiKey = ref('');
@@ -366,15 +381,24 @@ const tableContainerRef = ref<HTMLElement | null>(null);
 const isDragOver = ref(false);
 const activeTab = ref('current');
 const loadingStep = ref(1);
-// 固定使用 qwen3-vl-flash 模型
-const selectedModel = 'qwen3-vl-flash' as const;
+// 模型選擇
+const selectedModel = ref<AIModel>(DEFAULT_MODEL);
 
-// 从 localStorage 加载 API Key
+// 从 localStorage 加载设置
 onMounted(() => {
   const savedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
   if (savedApiKey) {
     apiKey.value = savedApiKey;
   }
+  const savedModel = localStorage.getItem(MODEL_STORAGE_KEY) as AIModel | null;
+  if (savedModel && AI_MODELS.some(m => m.id === savedModel)) {
+    selectedModel.value = savedModel;
+  }
+});
+
+// 模型變更時自動儲存
+watch(selectedModel, (newVal) => {
+  localStorage.setItem(MODEL_STORAGE_KEY, newVal);
 });
 
 // 确认 API Key 配置
@@ -504,7 +528,7 @@ const handleAnalyze = async () => {
     const result = await analyzeVideo(
       videoFile.value,
       apiKey.value,
-      selectedModel,
+      selectedModel.value,
       VIDEO_ANALYSIS_PROMPT,
       (message) => {
         progressMessage.value = message;
@@ -556,7 +580,7 @@ const handleAnalyze = async () => {
       await saveAnalysisToLocal(
         videoFile.value.name,
         videoFile.value.size,
-        selectedModel,
+        selectedModel.value,
         result,
         markdownContent.value
       );
