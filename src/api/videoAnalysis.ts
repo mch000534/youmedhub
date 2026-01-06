@@ -8,6 +8,7 @@ export { VIDEO_ANALYSIS_PROMPT };
 
 // OpenRouter 支援的視覺模型
 export const AI_MODELS = [
+  { id: 'qwen/qwen-vl-max', name: 'Qwen VL Max', description: '旗艦版' },
   { id: 'qwen/qwen-vl-plus', name: 'Qwen VL Plus', description: '推薦' },
   { id: 'qwen/qwen-2.5-vl-72b-instruct', name: 'Qwen 2.5 VL 72B', description: '高精確度' },
   { id: 'qwen/qwen-2.5-vl-32b-instruct', name: 'Qwen 2.5 VL 32B', description: '平衡' },
@@ -36,12 +37,14 @@ function parseMarkdownTable(markdown: string): VideoAnalysisResponse {
   let tableStartIndex = -1;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (!line) continue;
+
     // 兼容多种表头格式：完整格式或截断格式（如 '号', '别', '镜'）
     const isSeq = line.includes('序号') || line.includes('号');
     const isShot = line.includes('景别') || line.includes('别');
     const isMov = line.includes('运镜') || line.includes('镜');
 
-    if (line && isSeq && isShot && isMov) {
+    if (isSeq && isShot && isMov) {
       tableStartIndex = i;
       break;
     }
