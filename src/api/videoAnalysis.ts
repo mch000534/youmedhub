@@ -37,6 +37,7 @@ function parseMarkdownTable(markdown: string): VideoAnalysisResponse {
   let tableStartIndex = -1;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    if (!line) continue;
     // 兼容多种表头格式：完整格式或截断格式（如 '号', '别', '镜'）
     const isSeq = line.includes('序号') || line.includes('号');
     const isShot = line.includes('景别') || line.includes('别');
